@@ -1,4 +1,5 @@
 #include "..\main.h"
+#include <iostream>
 
 Ast::Ast(const Bytecode& bytecode, const bool& ignoreDebugInfo, const bool& minimizeDiffs) : bytecode(bytecode), ignoreDebugInfo(ignoreDebugInfo), minimizeDiffs(minimizeDiffs) {}
 
@@ -93,7 +94,12 @@ void Ast::build_instructions(Function& function) {
 				function.block[i]->function->upvalues[j].slot = function.block[i]->function->prototype.upvalues[j];
 
 				if (!(function.block[i]->function->prototype.upvalues[j] & Bytecode::BC_UV_LOCAL)) {
-					function.block[i]->function->upvalues[j].slotScope = function.upvalues[function.block[i]->function->upvalues[j].slot].slotScope;
+					const uint8_t upvalueSlot = function.block[i]->function->upvalues[j].slot;
+					if (upvalueSlot >= function.upvalues.size()) {
+						function.block[i]->function->upvalues[j].slotScope = nullptr;
+					} else {
+						function.block[i]->function->upvalues[j].slotScope = function.upvalues[upvalueSlot].slotScope;
+					}
 					continue;
 				}
 
@@ -661,7 +667,12 @@ void Ast::build_expressions(Function& function, std::vector<Statement*>& block) 
 			case Bytecode::BC_OP_UGET:
 				block[i]->assignment.expressions.back() = new_expression(AST_EXPRESSION_VARIABLE);
 				block[i]->assignment.expressions.back()->variable->type = AST_VARIABLE_UPVALUE;
-				block[i]->assignment.expressions.back()->variable->slotScope = function.upvalues[block[i]->instruction.d].slotScope;
+				block[i]->assignment.expressions.back()->variable->slot = block[i]->instruction.d;
+				if (block[i]->instruction.d >= function.upvalues.size()) {
+					block[i]->assignment.expressions.back()->variable->slotScope = nullptr;
+				} else {
+					block[i]->assignment.expressions.back()->variable->slotScope = function.upvalues[block[i]->instruction.d].slotScope;
+				}
 				break;
 			case Bytecode::BC_OP_USETV:
 			case Bytecode::BC_OP_USETS:
@@ -669,7 +680,12 @@ void Ast::build_expressions(Function& function, std::vector<Statement*>& block) 
 			case Bytecode::BC_OP_USETP:
 				block[i]->assignment.variables.resize(1);
 				block[i]->assignment.variables.back().type = AST_VARIABLE_UPVALUE;
-				block[i]->assignment.variables.back().slotScope = function.upvalues[block[i]->instruction.a].slotScope;
+				block[i]->assignment.variables.back().slot = block[i]->instruction.a;
+				if (block[i]->instruction.a >= function.upvalues.size()) {
+					block[i]->assignment.variables.back().slotScope = nullptr;
+				} else {
+					block[i]->assignment.variables.back().slotScope = function.upvalues[block[i]->instruction.a].slotScope;
+				}
 
 				switch (block[i]->instruction.type) {
 				case Bytecode::BC_OP_USETV:
@@ -1425,6 +1441,7 @@ void Ast::build_slot_scopes(Function& function, std::vector<Statement*>& block, 
 		if (block[i]->function) {
 			for (uint8_t j = block[i]->function->upvalues.size(); j--;) {
 				if (!block[i]->function->upvalues[j].local) continue;
+				if (block[i]->function->upvalues[j].slot >= function.slotScopeCollector.slotInfos.size()) continue;
 				if (block[i]->function->upvalues[j].slot == block[i]->assignment.variables.back().slot) block[i]->function->assignmentSlotIsUpvalue = true;
 				function.slotScopeCollector.add_to_scope(block[i]->function->upvalues[j].slot, block[i]->function->upvalues[j].slotScope, id);
 			}

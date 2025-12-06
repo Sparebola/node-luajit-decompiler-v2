@@ -151,6 +151,7 @@ void Lua::write_block(const Ast::Function& function, const std::vector<Ast::Stat
 
 				if (!block[i]->assignment.expressions.back()->function->assignmentSlotIsUpvalue) {
 					for (uint8_t j = block[i]->assignment.expressions.back()->function->upvalues.size(); j--;) {
+						if (!block[i]->assignment.expressions.back()->function->upvalues[j].slotScope) continue;
 						if ((*block[i]->assignment.expressions.back()->function->upvalues[j].slotScope)->name != (*block[i]->assignment.variables.back().slotScope)->name) continue;
 						isFunctionDefinition = false;
 						break;
@@ -702,7 +703,8 @@ void Lua::write_variable(const Ast::Variable& variable, const bool& isLineStart)
 	switch (variable.type) {
 	case Ast::AST_VARIABLE_SLOT:
 	case Ast::AST_VARIABLE_UPVALUE:
-		if (!(*variable. slotScope)->name.size()) {
+		if (!variable.slotScope || !(*variable.slotScope)->name.size()) {
+		// if (!(*variable. slotScope)->name.size()) {
 			write("unkuv_" + std::to_string(variable.slot));
 			break;
 		}

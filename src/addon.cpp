@@ -1,6 +1,5 @@
 #include <napi.h>
 #include <string>
-#include <vector>
 #include <cstdint>
 #include <stdexcept>
 
