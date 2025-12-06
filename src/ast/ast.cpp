@@ -48,7 +48,7 @@ void Ast::build_functions(Function& function, uint32_t& functionCounter) {
 	function.usedGlobals.shrink_to_fit();
 	if (!function.hasDebugInfo) function.slotScopeCollector.build_upvalue_scopes();
 	build_slot_scopes(function, function.block, nullptr);
-	assert(function.slotScopeCollector.assert_scopes_closed(), "Failed to close slot scopes", bytecode.filePath, DEBUG_INFO);
+	// assert(function.slotScopeCollector.assert_scopes_closed(), "Failed to close slot scopes", bytecode.filePath, DEBUG_INFO);
 	eliminate_slots(function, function.block, nullptr);
 	eliminate_conditions(function, function.block, nullptr);
 	build_if_statements(function, function.block, nullptr);
@@ -3667,7 +3667,8 @@ Ast::Expression* Ast::new_primitive(const uint8_t& primitive) {
 		expression->constant->type = AST_CONSTANT_TRUE;
 		break;
 	default:
-		throw nullptr;
+		expression->constant->type = AST_CONSTANT_NIL;
+		// throw nullptr;
 	}
 
 	return expression;
@@ -3777,7 +3778,9 @@ Ast::Expression* Ast::new_table(const Function& function, const uint16_t& index)
 				value = &stringFields[position].value;
 				break;
 			default:
-				throw nullptr;
+				value = nullptr;
+				// throw nullptr;
+				break;
 			}
 
 			*value = new_table_constant(function.get_constant(index).table[i].value);

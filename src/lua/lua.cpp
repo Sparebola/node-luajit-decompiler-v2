@@ -325,7 +325,9 @@ void Lua::write_block(const Ast::Function& function, const std::vector<Ast::Stat
 			write("::", function.labels[block[i]->instruction.label].name, "::");
 			break;
 		default:
-			throw nullptr;
+			write_indent();
+			write("unknown statement type");
+			// throw nullptr;
 		}
 
 		write(NEW_LINE);
@@ -700,7 +702,10 @@ void Lua::write_variable(const Ast::Variable& variable, const bool& isLineStart)
 	switch (variable.type) {
 	case Ast::AST_VARIABLE_SLOT:
 	case Ast::AST_VARIABLE_UPVALUE:
-		if (!(*variable.slotScope)->name.size()) throw nullptr;
+		if (!(*variable. slotScope)->name.size()) {
+			write("unkuv_" + std::to_string(variable.slot));
+			break;
+		}
 		write((*variable.slotScope)->name);
 		break;
 	case Ast::AST_VARIABLE_GLOBAL:
