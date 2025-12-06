@@ -2980,8 +2980,8 @@ void Ast::build_if_statements(Function& function, std::vector<Statement*>& block
 	for (uint32_t i = block.size(); i--;) {
 		switch (block[i]->type) {
 		case AST_STATEMENT_CONDITION:
-			block[i]->type = AST_STATEMENT_IF;
 			targetLabel = INVALID_ID;
+			index = block.size();
 
 			for (index = i; index < block.size(); index++) {
 				blockInfo.index = index;
@@ -2992,11 +2992,41 @@ void Ast::build_if_statements(Function& function, std::vector<Statement*>& block
 				targetLabel = INVALID_ID;
 			}
 
-			assert(targetLabel != INVALID_ID, "Failed to build if statement", bytecode.filePath, DEBUG_INFO);
-			block[i]->block.reserve(index - i);
-			block[i]->block.insert(block[i]->block.begin(), block.begin() + i + 1, block.begin() + index + 1);
-			block.erase(block.begin() + i + 1, block.begin() + index + 1);
-			function.remove_jump(block[i]->instruction.id, block[i]->instruction.target);
+			if (targetLabel == INVALID_ID) {
+				index = i + 1;
+				for (; index < block.size(); index++) {
+					if (block[index]->type == AST_STATEMENT_CONDITION
+						|| block[index]->type == AST_STATEMENT_GOTO
+						|| block[index]->type == AST_STATEMENT_RETURN
+						|| block[index]->type == AST_STATEMENT_LOOP
+						|| block[index]->type == AST_STATEMENT_NUMERIC_FOR
+						|| block[index]->type == AST_STATEMENT_GENERIC_FOR) {
+						break;
+					}
+				}
+			}
+
+			if (index <= i || index >= block.size()) {
+				if (!block[i]->assignment.expressions.size()) {
+					block[i]->assignment.expressions.emplace_back(new_primitive(2));
+				}
+				block[i]->type = AST_STATEMENT_IF;
+				continue;
+			}
+
+			if (!block[i]->assignment.expressions.size()) {
+				block[i]->assignment.expressions.emplace_back(new_primitive(2));
+			}
+
+			block[i]->type = AST_STATEMENT_IF;
+			if (index > i) {
+				block[i]->block.reserve(index - i);
+				block[i]->block.insert(block[i]->block.begin(), block.begin() + i + 1, block.begin() + index + 1);
+				block.erase(block.begin() + i + 1, block.begin() + index + 1);
+			}
+			if (targetLabel != INVALID_ID) {
+				function.remove_jump(block[i]->instruction.id, block[i]->instruction.target);
+			}
 			blockInfo.index = i;
 			build_else_statements(block[i]->block, &blockInfo);
 			continue;
