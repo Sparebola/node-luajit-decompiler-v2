@@ -1,7 +1,10 @@
 #include "..\main.h"
 
 Lua::Lua(const Bytecode& bytecode, const Ast& ast, const std::string& filePath, const bool& forceOverwrite, const bool& minimizeDiffs, const bool& unrestrictedAscii)
-	: bytecode(bytecode), ast(ast), filePath(filePath), forceOverwrite(forceOverwrite), minimizeDiffs(minimizeDiffs), unrestrictedAscii(unrestrictedAscii) {}
+	: bytecode(bytecode), ast(ast), filePath(filePath), forceOverwrite(forceOverwrite), minimizeDiffs(minimizeDiffs), unrestrictedAscii(unrestrictedAscii), returnString(false) {}
+
+Lua::Lua(const Bytecode& bytecode, const Ast& ast, const bool& minimizeDiffs, const bool& unrestrictedAscii)
+	: bytecode(bytecode), ast(ast), filePath(""), forceOverwrite(false), minimizeDiffs(minimizeDiffs), unrestrictedAscii(unrestrictedAscii), returnString(true) {}
 
 Lua::~Lua() {
 	close_file();
@@ -14,10 +17,18 @@ void Lua::operator()() {
 	if (ast.chunk->block.size()) write_block(*ast.chunk, ast.chunk->block);
 	prototypeDataLeft -= ast.chunk->prototype.prototypeSize;
 	print_progress_bar(bytecode.prototypesTotalSize - prototypeDataLeft, bytecode.prototypesTotalSize);
-	create_file();
-	write_file();
-	close_file();
+	if (!returnString) {
+		create_file();
+		write_file();
+		close_file();
+	} else {
+		write_file();
+	}
 	erase_progress_bar();
+}
+
+std::string Lua::getResult() {
+	return writeBuffer;
 }
 
 void Lua::write_header() {
@@ -1024,8 +1035,13 @@ void Lua::close_file() {
 }
 
 void Lua::write_file() {
+	if (returnString) {
+		return;
+	}
 	DWORD charsWritten = 0;
 	assert(WriteFile(file, writeBuffer.data(), writeBuffer.size(), &charsWritten, NULL) && !(writeBuffer.size() - charsWritten), "Failed writing to file", filePath, DEBUG_INFO);
-	writeBuffer.clear();
-	writeBuffer.shrink_to_fit();
+	if (!returnString) {
+		writeBuffer.clear();
+		writeBuffer.shrink_to_fit();
+	}
 }

@@ -1,6 +1,9 @@
 #include "..\main.h"
+#include <cstring>
 
-Bytecode::Bytecode(const std::string& filePath) : filePath(filePath) {}
+Bytecode::Bytecode(const std::string& filePath) : filePath(filePath), useBuffer(false) {}
+
+Bytecode::Bytecode(const uint8_t* buffer, size_t bufferSize) : filePath(""), dataBuffer(buffer), bufferSize(bufferSize), useBuffer(true) {}
 
 Bytecode::~Bytecode() {
 	close_file();
@@ -12,11 +15,19 @@ Bytecode::~Bytecode() {
 
 void Bytecode::operator()() {
 	print_progress_bar();
-	open_file();
+	if (useBuffer) {
+		open_buffer();
+	} else {
+		open_file();
+	}
 	read_header();
 	prototypesTotalSize = bytesUnread - 1;
 	read_prototypes();
-	close_file();
+	if (useBuffer) {
+		close_buffer();
+	} else {
+		close_file();
+	}
 	fileBuffer.clear();
 	fileBuffer.shrink_to_fit();
 	erase_progress_bar();
@@ -67,13 +78,38 @@ void Bytecode::open_file() {
 	bytesUnread = fileSize;
 }
 
+void Bytecode::open_buffer() {
+	assert(bufferSize >= MIN_FILE_SIZE, "Buffer is too small or empty", filePath, DEBUG_INFO);
+	fileSize = bufferSize;
+	bytesUnread = fileSize;
+	currentPosition = 0;
+}
+
+void Bytecode::close_buffer() {
+	dataBuffer = nullptr;
+	currentPosition = 0;
+}
+
 void Bytecode::close_file() {
 	if (file == INVALID_HANDLE_VALUE) return;
 	CloseHandle(file);
 	file = INVALID_HANDLE_VALUE;
 }
 
+void Bytecode::read_buffer(const uint32_t& byteCount) {
+	assert(bytesUnread >= byteCount, "Read would exceed end of buffer", filePath, DEBUG_INFO);
+	assert(currentPosition + byteCount <= bufferSize, "Read would exceed buffer size", filePath, DEBUG_INFO);
+	fileBuffer.resize(byteCount);
+	std::memcpy(fileBuffer.data(), dataBuffer + currentPosition, byteCount);
+	currentPosition += byteCount;
+	bytesUnread -= byteCount;
+}
+
 void Bytecode::read_file(const uint32_t& byteCount) {
+	if (useBuffer) {
+		read_buffer(byteCount);
+		return;
+	}
 	assert(bytesUnread >= byteCount, "Read would exceed end of file", filePath, DEBUG_INFO);
 	fileBuffer.resize(byteCount);
 	DWORD bytesRead = 0;

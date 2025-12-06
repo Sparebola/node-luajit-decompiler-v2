@@ -1,0 +1,38 @@
+{
+  "name": "node-luajit-decompiler-v2",
+  "version": "1.0.0",
+  "description": "_LuaJIT Decompiler v2_ is a replacement tool for the old and now mostly defunct python decompiler.  \r The project fixes all of the bugs and quirks the python decompiler had while also offering  \r full support for gotos and stripped bytecode including locals and upvalues.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node-gyp rebuild",
+    "build:ts": "tsc --build tsconfig.build.json",
+    "prepare": "npm run build && npm run build:ts"
+  },
+  "dependencies": {
+    "node-addon-api": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.25",
+    "node-gyp": "^10.0.0",
+    "typescript": "^5.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sparebola/node-luajit-decompiler-v2.git"
+  },
+  "keywords": [
+    "lua",
+    "luajit",
+    "decompile"
+  ],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Sparebola/node-luajit-decompiler-v2/issues"
+  },
+  "homepage": "https://github.com/Sparebola/node-luajit-decompiler-v2#readme"
+}

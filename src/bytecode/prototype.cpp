@@ -34,29 +34,6 @@ void Bytecode::Prototype::read_instructions() {
 		instructions[i].type = get_op_type(get_next_byte(), bytecode.header.version);
 		assert(instructions[i].type < BC_OP_INVALID, "Prototype has invalid instruction (" + byte_to_string(instructions[i].type) + ")", bytecode.filePath, DEBUG_INFO);
 
-		switch (instructions[i].type) {
-		case BC_OP_ISTYPE:
-		case BC_OP_ISNUM:
-		case BC_OP_TGETR:
-		case BC_OP_TSETR:
-		case BC_OP_JFORI:
-		case BC_OP_IFORL:
-		case BC_OP_JFORL:
-		case BC_OP_IITERL:
-		case BC_OP_JITERL:
-		case BC_OP_ILOOP:
-		case BC_OP_JLOOP:
-		case BC_OP_FUNCF:
-		case BC_OP_IFUNCF:
-		case BC_OP_JFUNCF:
-		case BC_OP_FUNCV:
-		case BC_OP_IFUNCV:
-		case BC_OP_JFUNCV:
-		case BC_OP_FUNCC:
-		case BC_OP_FUNCCW:
-			assert(false, "Prototype has unsupported instruction (" + byte_to_string(instructions[i].type) + ")", bytecode.filePath, DEBUG_INFO);
-		}
-
 		instructions[i].a = get_next_byte();
 
 		if (is_op_abc_format(instructions[i].type)) {

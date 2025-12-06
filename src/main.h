@@ -10,9 +10,11 @@ Requirements:
 #error Default char is not unsigned!
 #endif
 
+#ifndef NODE_ADDON
 #pragma comment(linker, "/stack:268435456")
 #pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #pragma comment(lib, "shlwapi.lib")
+#endif
 
 #include <bit>
 #include <cmath>

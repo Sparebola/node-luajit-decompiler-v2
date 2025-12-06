@@ -13,6 +13,7 @@ public:
 	#include "instructions.h"
 
 	Bytecode(const std::string& filePath);
+	Bytecode(const uint8_t* buffer, size_t bufferSize);
 	~Bytecode();
 
 	void operator()();
@@ -36,12 +37,19 @@ private:
 	void read_header();
 	void read_prototypes();
 	void open_file();
+	void open_buffer();
 	void close_file();
+	void close_buffer();
 	void read_file(const uint32_t& byteCount);
+	void read_buffer(const uint32_t& byteCount);
 	uint32_t read_uleb128();
 	bool buffer_next_block();
 
 	HANDLE file = INVALID_HANDLE_VALUE;
+	const uint8_t* dataBuffer = nullptr;
+	size_t bufferSize = 0;
+	size_t currentPosition = 0;
+	bool useBuffer = false;
 	uint64_t fileSize = 0;
 	uint64_t bytesUnread = 0;
 	std::vector<uint8_t> fileBuffer;

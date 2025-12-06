@@ -76,8 +76,16 @@ void Ast::build_instructions(Function& function) {
 		function.block[i]->instruction.id = i;
 
 		switch (function.block[i]->instruction.type) {
-		case Bytecode::BC_OP_FNEW:
-			function.block[i]->function = new_function(*function.get_constant(function.block[i]->instruction.d).prototype, function.level + 1);
+		case Bytecode::BC_OP_FNEW: {
+			if (function.block[i]->instruction.d >= function.prototype.constants.size()) {
+				continue;
+			}
+
+			const Bytecode::Constant& constant = function.get_constant(function.block[i]->instruction.d);
+			if (!constant.prototype) {
+				continue;
+			}
+			function.block[i]->function = new_function(*constant.prototype, function.level + 1);
 			function.childFunctions.emplace_back(function.block[i]->function);
 			function.block[i]->function->upvalues.resize(function.block[i]->function->prototype.upvalues.size());
 
@@ -99,6 +107,7 @@ void Ast::build_instructions(Function& function) {
 			}
 
 			continue;
+		}
 		case Bytecode::BC_OP_CALLMT:
 		case Bytecode::BC_OP_CALLT:
 		case Bytecode::BC_OP_RETM:
@@ -116,6 +125,8 @@ void Ast::build_instructions(Function& function) {
 		case Bytecode::BC_OP_JMP:
 			function.block[i]->instruction.target = function.block[i]->instruction.id + (function.block[i]->instruction.d - Bytecode::BC_OP_JMP_BIAS + 1);
 			continue;
+		default:
+		continue;
 		}
 	}
 
@@ -314,6 +325,10 @@ void Ast::build_loops(Function& function) {
 	uint32_t targetIndex, breakTarget;
 
 	for (uint32_t i = function.block.size(); i--;) {
+		if (i >= function.block.size()) {
+			break;
+		}
+		
 		if (function.block[i]->type != AST_STATEMENT_INSTRUCTION) continue;
 
 		switch (function.block[i]->instruction.type) {
@@ -321,6 +336,15 @@ void Ast::build_loops(Function& function) {
 		case Bytecode::BC_OP_JMP:
 			function.block[i]->type = AST_STATEMENT_GENERIC_FOR;
 			targetIndex = get_block_index_from_id(function.block, function.block[i]->instruction.target);
+			
+			if (targetIndex == INVALID_ID) {
+				continue;
+			}
+			
+			if (targetIndex + 2 >= function.block.size()) {
+				continue;
+			}
+
 			breakTarget = get_extended_id_from_statement(function.block[targetIndex + 2]);
 			function.block[targetIndex]->instruction.target = function.block[i]->instruction.label;
 			function.block[i]->instruction = function.block[targetIndex]->instruction;
@@ -338,6 +362,18 @@ void Ast::build_loops(Function& function) {
 		case Bytecode::BC_OP_FORI:
 			function.block[i]->type = AST_STATEMENT_NUMERIC_FOR;
 			targetIndex = get_block_index_from_id(function.block, function.block[i]->instruction.target);
+			
+			if (targetIndex == INVALID_ID) {
+				continue;
+			}
+			
+			if (targetIndex >= function.block.size()) {
+				continue;
+			}
+			
+			if (targetIndex == 0) {
+				continue;
+			}
 			breakTarget = get_extended_id_from_statement(function.block[targetIndex]);
 			function.block[targetIndex - 1]->type = AST_STATEMENT_EMPTY;
 			function.block[i]->block.reserve(targetIndex - 1 - i);
@@ -364,6 +400,18 @@ void Ast::build_loops(Function& function) {
 
 			function.block[i]->type = AST_STATEMENT_LOOP;
 			targetIndex = get_block_index_from_id(function.block, function.block[i]->instruction.target);
+			
+			if (targetIndex == INVALID_ID) {
+				continue;
+			}
+			
+			if (targetIndex >= function.block.size()) {
+				continue;
+			}
+			
+			if (targetIndex <= i) {
+				continue;
+			}
 			breakTarget = get_extended_id_from_statement(function.block[targetIndex]);
 			function.block[i]->block.reserve(targetIndex - 1 - i);
 			function.block[i]->block.insert(function.block[i]->block.begin(), function.block.begin() + i + 1, function.block.begin() + targetIndex);
@@ -443,6 +491,10 @@ void Ast::build_local_scopes(Function& function, std::vector<Statement*>& block)
 
 void Ast::build_expressions(Function& function, std::vector<Statement*>& block) {
 	for (uint32_t i = block.size(); i--;) {
+		if (i >= block.size()) {
+			break;
+		}
+		
 		switch (block[i]->type) {
 		case AST_STATEMENT_INSTRUCTION:
 			block[i]->type = AST_STATEMENT_ASSIGNMENT;
@@ -2497,6 +2549,9 @@ void Ast::build_multi_assignment(Function& function, std::vector<Statement*>& bl
 	uint32_t index;
 
 	for (uint32_t i = block.size(); i--;) {
+		if (i >= block.size()) {
+			break;
+		}
 		switch (block[i]->type) {
 		case AST_STATEMENT_ASSIGNMENT:
 			if (block[i]->assignment.variables.size() >= 2) {
@@ -2504,20 +2559,29 @@ void Ast::build_multi_assignment(Function& function, std::vector<Statement*>& bl
 				isMultiAssignment = true;
 
 				for (uint8_t j = block[i]->assignment.variables.size(); j--;) {
+					uint32_t checkIndex = i + block[i]->assignment.variables.size() - j;
+					if (checkIndex >= block.size()) {
+						isMultiAssignment = false;
+						break;
+					}
+					if (!block[i]->assignment.variables[j].slotScope) {
+						isMultiAssignment = false;
+						break;
+					}
 					if ((*block[i]->assignment.variables[j].slotScope)->usages == 1
-						&& !function.is_valid_label(block[i + block[i]->assignment.variables.size() - j]->instruction.label)
-						&& block[i + block[i]->assignment.variables.size() - j]->type == AST_STATEMENT_ASSIGNMENT
-						&& block[i + block[i]->assignment.variables.size() - j]->assignment.variables.size() == 1
-						&& (block[i + block[i]->assignment.variables.size() - j]->assignment.variables.back().type != AST_VARIABLE_TABLE_INDEX
-							|| (block[i + block[i]->assignment.variables.size() - j]->assignment.variables.back().table->type == AST_EXPRESSION_VARIABLE
-								&& block[i + block[i]->assignment.variables.size() - j]->assignment.variables.back().table->variable->type == AST_VARIABLE_SLOT
-								&& (get_constant_type(block[i + block[i]->assignment.variables.size() - j]->assignment.variables.back().tableIndex)
-									|| (block[i + block[i]->assignment.variables.size() - j]->assignment.variables.back().tableIndex->type == AST_EXPRESSION_VARIABLE
-										&& block[i + block[i]->assignment.variables.size() - j]->assignment.variables.back().tableIndex->variable->type == AST_VARIABLE_SLOT))))
-						&& block[i + block[i]->assignment.variables.size() - j]->assignment.expressions.size() == 1
-						&& block[i + block[i]->assignment.variables.size() - j]->assignment.expressions.back()->type == AST_EXPRESSION_VARIABLE
-						&& block[i + block[i]->assignment.variables.size() - j]->assignment.expressions.back()->variable->type == AST_VARIABLE_SLOT
-						&& block[i + block[i]->assignment.variables.size() - j]->assignment.expressions.back()->variable->slotScope == block[i]->assignment.variables[j].slotScope)
+						&& !function.is_valid_label(block[checkIndex]->instruction.label)
+						&& block[checkIndex]->type == AST_STATEMENT_ASSIGNMENT
+						&& block[checkIndex]->assignment.variables.size() == 1
+						&& (block[checkIndex]->assignment.variables.back().type != AST_VARIABLE_TABLE_INDEX
+							|| (block[checkIndex]->assignment.variables.back().table->type == AST_EXPRESSION_VARIABLE
+								&& block[checkIndex]->assignment.variables.back().table->variable->type == AST_VARIABLE_SLOT
+								&& (get_constant_type(block[checkIndex]->assignment.variables.back().tableIndex)
+									|| (block[checkIndex]->assignment.variables.back().tableIndex->type == AST_EXPRESSION_VARIABLE
+										&& block[checkIndex]->assignment.variables.back().tableIndex->variable->type == AST_VARIABLE_SLOT))))
+						&& block[checkIndex]->assignment.expressions.size() == 1
+						&& block[checkIndex]->assignment.expressions.back()->type == AST_EXPRESSION_VARIABLE
+						&& block[checkIndex]->assignment.expressions.back()->variable->type == AST_VARIABLE_SLOT
+						&& block[checkIndex]->assignment.expressions.back()->variable->slotScope == block[i]->assignment.variables[j].slotScope)
 						continue;
 					isMultiAssignment = false;
 					break;
@@ -2526,6 +2590,9 @@ void Ast::build_multi_assignment(Function& function, std::vector<Statement*>& bl
 				if (!isMultiAssignment) continue;
 
 				for (uint8_t j = block[i]->assignment.variables.size(); j--;) {
+					if (i + 1 >= block.size()) {
+						break;
+					}
 					function.slotScopeCollector.remove_scope(block[i]->assignment.variables[j].slot, block[i]->assignment.variables[j].slotScope);
 					block[i]->assignment.variables[j] = block[i + 1]->assignment.variables.back();
 					block.erase(block.begin() + i + 1);
@@ -2537,13 +2604,16 @@ void Ast::build_multi_assignment(Function& function, std::vector<Statement*>& bl
 			index = i;
 
 			if (block[i]->type == AST_STATEMENT_FUNCTION_CALL
-				|| (block[i]->assignment.variables.back().type == AST_VARIABLE_SLOT
+				|| (block[i]->assignment.variables.size() > 0
+					&& block[i]->assignment.variables.back().type == AST_VARIABLE_SLOT
+					&& block[i]->assignment.variables.back().slotScope
 					&& !(*block[i]->assignment.variables.back().slotScope)->usages
 					&& !block[i]->assignment.forwardDeclaration)) {
-				while (index
+				while (index > 0
 					&& !function.is_valid_label(block[index]->instruction.label)
 					&& block[index - 1]->type == AST_STATEMENT_ASSIGNMENT
 					&& block[index - 1]->assignment.variables.size() == 1
+					&& block[index - 1]->assignment.variables.back().slotScope
 					&& block[index - 1]->assignment.variables.back().type == AST_VARIABLE_SLOT
 					&& !(*block[index - 1]->assignment.variables.back().slotScope)->usages
 					&& !block[index - 1]->assignment.forwardDeclaration) {
@@ -2553,10 +2623,12 @@ void Ast::build_multi_assignment(Function& function, std::vector<Statement*>& bl
 
 			if (index
 				&& i + 1 < block.size()
+				&& index > 0
 				&& !function.is_valid_label(block[index]->instruction.label)
 				&& !function.is_valid_label(block[i + 1]->instruction.label)
 				&& block[index - 1]->type == AST_STATEMENT_ASSIGNMENT
 				&& block[index - 1]->assignment.variables.size() == 1
+				&& block[index - 1]->assignment.variables.back().slotScope
 				&& block[index - 1]->assignment.variables.back().type == AST_VARIABLE_SLOT
 				&& (*block[index - 1]->assignment.variables.back().slotScope)->usages == 1
 				&& block[i + 1]->type == AST_STATEMENT_ASSIGNMENT
@@ -2572,9 +2644,13 @@ void Ast::build_multi_assignment(Function& function, std::vector<Statement*>& bl
 				&& block[i + 1]->assignment.expressions.back()->variable->type == AST_VARIABLE_SLOT
 				&& block[i + 1]->assignment.expressions.back()->variable->slotScope == block[index - 1]->assignment.variables.back().slotScope) {
 				if (block[i]->type == AST_STATEMENT_ASSIGNMENT) {
+					if (block[i]->assignment.variables.size() == 0) {
+						break;
+					}
 					switch (block[i]->assignment.variables.back().type) {
 					case AST_VARIABLE_SLOT:
-						if (!(*block[i]->assignment.variables.back().slotScope)->usages && !block[i]->assignment.forwardDeclaration) {
+						if (block[i]->assignment.variables.back().slotScope
+							&& !(*block[i]->assignment.variables.back().slotScope)->usages && !block[i]->assignment.forwardDeclaration) {
 							function.slotScopeCollector.remove_scope(block[i]->assignment.variables.back().slot, block[i]->assignment.variables.back().slotScope);
 							block[i]->assignment.variables.clear();
 						}
@@ -2596,6 +2672,12 @@ void Ast::build_multi_assignment(Function& function, std::vector<Statement*>& bl
 
 				while (i != index) {
 					i--;
+					if (block[i]->assignment.variables.size() == 0 || block[i]->assignment.expressions.size() == 0) {
+						break;
+					}
+					if (!block[i]->assignment.variables.back().slotScope) {
+						break;
+					}
 					function.slotScopeCollector.remove_scope(block[i]->assignment.variables.back().slot, block[i]->assignment.variables.back().slotScope);
 					block[i + 1]->assignment.expressions.emplace(block[i + 1]->assignment.expressions.begin(), block[i]->assignment.expressions.back());
 					block.erase(block.begin() + i);
@@ -2604,12 +2686,18 @@ void Ast::build_multi_assignment(Function& function, std::vector<Statement*>& bl
 				break;
 			}
 
-			if (block[i]->type == AST_STATEMENT_FUNCTION_CALL && block[i]->assignment.expressions.back()->type == AST_EXPRESSION_VARARG) {
-				assert(i
+			if (block[i]->type == AST_STATEMENT_FUNCTION_CALL 
+				&& block[i]->assignment.expressions.size() > 0
+				&& block[i]->assignment.expressions.back()->type == AST_EXPRESSION_VARARG) {
+				if (!(i > 0
 					&& !function.is_valid_label(block[i]->instruction.label)
 					&& block[i - 1]->type == AST_STATEMENT_ASSIGNMENT
-					&& block[i - 1]->assignment.variables.size() == 1,
-					"Unable to eliminate vararg with zero returns", bytecode.filePath, DEBUG_INFO);
+					&& block[i - 1]->assignment.variables.size() == 1)) {
+					continue;
+				}
+				if (block[i - 1]->assignment.expressions.size() == 0) {
+					continue;
+				}
 				block[i - 1]->assignment.expressions.emplace_back(block[i]->assignment.expressions.back());
 				block.erase(block.begin() + i);
 				i--;
@@ -2618,12 +2706,13 @@ void Ast::build_multi_assignment(Function& function, std::vector<Statement*>& bl
 			continue;
 		}
 
-		while (i
+		while (i > 0
 			&& i + 1 < block.size()
 			&& !function.is_valid_label(block[i]->instruction.label)
 			&& !function.is_valid_label(block[i + 1]->instruction.label)
 			&& block[i - 1]->type == AST_STATEMENT_ASSIGNMENT
 			&& block[i - 1]->assignment.variables.size() == 1
+			&& block[i - 1]->assignment.variables.back().slotScope
 			&& block[i - 1]->assignment.variables.back().type == AST_VARIABLE_SLOT
 			&& (*block[i - 1]->assignment.variables.back().slotScope)->usages == 1
 			&& block[i + 1]->type == AST_STATEMENT_ASSIGNMENT
@@ -2638,6 +2727,9 @@ void Ast::build_multi_assignment(Function& function, std::vector<Statement*>& bl
 			&& block[i + 1]->assignment.expressions.back()->type == AST_EXPRESSION_VARIABLE
 			&& block[i + 1]->assignment.expressions.back()->variable->type == AST_VARIABLE_SLOT
 			&& block[i + 1]->assignment.expressions.back()->variable->slotScope == block[i - 1]->assignment.variables.back().slotScope) {
+			if (!block[i - 1]->assignment.variables.back().slotScope) {
+				break;
+			}
 			function.slotScopeCollector.remove_scope(block[i - 1]->assignment.variables.back().slot, block[i - 1]->assignment.variables.back().slotScope);
 			block[i]->assignment.expressions.emplace(block[i]->assignment.expressions.begin(), block[i - 1]->assignment.expressions.back());
 			block[i]->assignment.variables.emplace(block[i]->assignment.variables.begin(), block[i + 1]->assignment.variables.back());
@@ -2648,10 +2740,11 @@ void Ast::build_multi_assignment(Function& function, std::vector<Statement*>& bl
 		}
 
 		for (uint8_t j = block[i]->assignment.variables.size(); j--
-			&& i
+			&& i > 0
 			&& !function.is_valid_label(block[i]->instruction.label)
 			&& block[i - 1]->type == AST_STATEMENT_ASSIGNMENT
 			&& block[i - 1]->assignment.variables.size() == 1
+			&& block[i - 1]->assignment.variables.back().slotScope
 			&& block[i - 1]->assignment.variables.back().type == AST_VARIABLE_SLOT
 			&& (*block[i - 1]->assignment.variables.back().slotScope)->usages == 1;) {
 			if (block[i]->assignment.variables[j].type != AST_VARIABLE_TABLE_INDEX) continue;
@@ -2659,6 +2752,9 @@ void Ast::build_multi_assignment(Function& function, std::vector<Statement*>& bl
 			if (block[i]->assignment.variables[j].tableIndex->type == AST_EXPRESSION_VARIABLE
 				&& block[i]->assignment.variables[j].tableIndex->variable->type == AST_VARIABLE_SLOT
 				&& block[i]->assignment.variables[j].tableIndex->variable->slotScope == block[i - 1]->assignment.variables.back().slotScope) {
+				if (!block[i - 1]->assignment.variables.back().slotScope) {
+					continue;
+				}
 				function.slotScopeCollector.remove_scope(block[i - 1]->assignment.variables.back().slot, block[i - 1]->assignment.variables.back().slotScope);
 				block[i]->assignment.variables[j].tableIndex = block[i - 1]->assignment.expressions.back();
 				block[i]->instruction.label = block[i - 1]->instruction.label;
@@ -2668,7 +2764,9 @@ void Ast::build_multi_assignment(Function& function, std::vector<Statement*>& bl
 				continue;
 			}
 
-			if (block[i]->assignment.variables[j].table->type == AST_EXPRESSION_VARIABLE && block[i]->assignment.variables[j].table->variable->slotScope == block[i - 1]->assignment.variables.back().slotScope) {
+			if (block[i]->assignment.variables[j].table->type == AST_EXPRESSION_VARIABLE 
+				&& block[i - 1]->assignment.variables.back().slotScope
+				&& block[i]->assignment.variables[j].table->variable->slotScope == block[i - 1]->assignment.variables.back().slotScope) {
 				function.slotScopeCollector.remove_scope(block[i - 1]->assignment.variables.back().slot, block[i - 1]->assignment.variables.back().slotScope);
 				block[i]->assignment.variables[j].table = block[i - 1]->assignment.expressions.back();
 				block[i]->instruction.label = block[i - 1]->instruction.label;
