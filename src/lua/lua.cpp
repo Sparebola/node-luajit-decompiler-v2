@@ -704,7 +704,6 @@ void Lua::write_variable(const Ast::Variable& variable, const bool& isLineStart)
 	case Ast::AST_VARIABLE_SLOT:
 	case Ast::AST_VARIABLE_UPVALUE:
 		if (!variable.slotScope || !(*variable.slotScope)->name.size()) {
-		// if (!(*variable. slotScope)->name.size()) {
 			write("unkuv_" + std::to_string(variable.slot));
 			break;
 		}
