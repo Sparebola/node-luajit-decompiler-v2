@@ -5,12 +5,14 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "src",
+    "dist",
+    "binding.gyp"
   ],
   "scripts": {
     "build": "node-gyp rebuild",
     "build:ts": "tsc --build tsconfig.build.json",
-    "prepare": "npm run build && npm run build:ts"
+    "prepare": "npm run build:ts"
   },
   "dependencies": {
     "node-addon-api": "^7.0.0"
