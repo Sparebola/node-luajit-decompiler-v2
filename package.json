@@ -1,6 +1,6 @@
 {
   "name": "node-luajit-decompiler-v2",
-  "version": "1.0.0",
+  "version": "1.0.6",
   "description": "_LuaJIT Decompiler v2_ is a replacement tool for the old and now mostly defunct python decompiler.  \r The project fixes all of the bugs and quirks the python decompiler had while also offering  \r full support for gotos and stripped bytecode including locals and upvalues.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
