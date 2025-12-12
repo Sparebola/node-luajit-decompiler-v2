@@ -17,14 +17,38 @@
 				"NODE_ADDON",
 				"NAPI_CPP_EXCEPTIONS"
 			],
-			"msvs_settings": {
-				"VCCLCompilerTool": {
-					"ExceptionHandling": 1,
-					"AdditionalOptions": [
-						"/J"
+			"conditions": [
+				["OS=='win'", {
+					"msvs_settings": {
+						"VCCLCompilerTool": {
+							"ExceptionHandling": 1,
+							"AdditionalOptions": [
+								"/J"
+							]
+						},
+						"VCLinkerTool": {
+							"AdditionalOptions": [
+								"/STACK:268435456"
+							]
+						}
+					}
+				}],
+				["OS=='linux'", {
+					"cflags": [
+						"-funsigned-char",
+						"-std=c++20",
+						"-fexceptions"
+					],
+					"cflags_cc": [
+						"-funsigned-char",
+						"-std=c++20",
+						"-fexceptions"
+					],
+					"ldflags": [
+						"-Wl,-z,stack-size=268435456"
 					]
-				}
-			}
+				}]
+			]
 		}
 	]
 }

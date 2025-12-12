@@ -45,7 +45,7 @@ private:
 	uint32_t read_uleb128();
 	bool buffer_next_block();
 
-	HANDLE file = INVALID_HANDLE_VALUE;
+	std::ifstream file;
 	const uint8_t* dataBuffer = nullptr;
 	size_t bufferSize = 0;
 	size_t currentPosition = 0;

@@ -72,10 +72,10 @@ std::string decompileBuffer(const uint8_t* buffer, size_t bufferSize, const Deco
 			throw std::runtime_error("Decompilation resulted in empty output");
 		}
 		return result;
-	} catch (const Error& error) {
-		throw std::runtime_error("Decompilation error: " + error.message + " (in " + error.function + " at " + error.source + ":" + error.line + ")");
-	} catch (const std::exception& e) {
-		throw std::runtime_error(std::string("Decompilation error: ") + e.what());
+	} catch (const Error& customError) {
+		throw std::runtime_error("Decompilation error: " + customError.message + " (in " + customError.function + " at " + customError.source + ":" + customError.line + ")");
+	} catch (const std::exception& stdException) {
+		throw std::runtime_error(std::string("Decompilation error: ") + stdException.what());
 	} catch (...) {
 		throw std::runtime_error("Unknown decompilation error");
 	}
@@ -124,8 +124,8 @@ Napi::Value Decompile(const Napi::CallbackInfo& info) {
 		}
 		Napi::Buffer<uint8_t> outputBuffer = Napi::Buffer<uint8_t>::Copy(env, reinterpret_cast<const uint8_t*>(result.data()), result.size());
 		return outputBuffer;
-	} catch (const std::exception& e) {
-		Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+	} catch (const std::exception& stdException) {
+		Napi::Error::New(env, stdException.what()).ThrowAsJavaScriptException();
 		return env.Null();
 	} catch (...) {
 		Napi::Error::New(env, "Unknown error during decompilation").ThrowAsJavaScriptException();
